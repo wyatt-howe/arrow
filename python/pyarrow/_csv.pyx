@@ -41,6 +41,8 @@ from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
 from pyarrow.lib import frombytes, tobytes, SignalStopHandler
 from pyarrow.util import _stringify_path
 
+from enum import Enum
+
 
 cdef unsigned char _single_char(s) except 0:
     val = ord(s)
@@ -1275,6 +1277,11 @@ def open_csv(input_file, read_options=None, parse_options=None,
     return reader
 
 
+class QuotingStyle(Enum):
+    Needed = CQuotingStyle_Needed
+    AllValid = CQuotingStyle_AllValid
+    None_ = CQuotingStyle_None
+
 cdef class WriteOptions(_Weakrefable):
     """
     Options for writing CSV files.
@@ -1288,13 +1295,17 @@ cdef class WriteOptions(_Weakrefable):
         CSV data
     delimiter : 1-character string, optional (default ",")
         The character delimiting individual cells in the CSV data.
+    quoting_style : int, optional (default QuotingStyle.Needed)
+        Whether to quote values, and if so, which quoting style to use.
     """
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
+    QuotingStyle = QuotingStyle
+
     def __init__(self, *, include_header=None, batch_size=None,
-                 delimiter=None):
+                 delimiter=None, quoting_style=None):
         self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
         if include_header is not None:
             self.include_header = include_header
@@ -1302,6 +1313,8 @@ cdef class WriteOptions(_Weakrefable):
             self.batch_size = batch_size
         if delimiter is not None:
             self.delimiter = delimiter
+        if quoting_style is not None:
+            self.quoting_style = quoting_style
 
     @property
     def include_header(self):
@@ -1336,6 +1349,35 @@ cdef class WriteOptions(_Weakrefable):
     @delimiter.setter
     def delimiter(self, value):
         deref(self.options).delimiter = _single_char(value)
+
+    @property
+    def quoting_style(self):
+        """
+        The quoting style of the CSV data.
+        """
+        return deref(self.options).quoting_style
+
+    @quoting_style.setter
+    def quoting_style(self, value):
+        if value == QuotingStyle.Needed:
+            deref(self.options).quoting_style = CQuotingStyle_Needed
+        elif value == QuotingStyle.AllValid:
+            deref(self.options).quoting_style = CQuotingStyle_AllValid
+        elif value == QuotingStyle.None_:
+            deref(self.options).quoting_style = CQuotingStyle_None
+        else:
+            raise TypeError("Not a valid quoting style.")
+
+    @quoting_style.getter
+    def quoting_style(self):
+        if deref(self.options).quoting_style == CQuotingStyle_Needed:
+            return QuotingStyle.Needed
+        elif deref(self.options).quoting_style == CQuotingStyle_AllValid:
+            return QuotingStyle.AllValid
+        elif deref(self.options).quoting_style == CQuotingStyle_None:
+            return QuotingStyle.None_
+        else:
+            raise TypeError("Enum error.  This should have been caught!")
 
     @staticmethod
     cdef WriteOptions wrap(CCSVWriteOptions options):

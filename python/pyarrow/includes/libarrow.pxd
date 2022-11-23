@@ -1764,6 +1764,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         c_bool include_header
         int32_t batch_size
         unsigned char delimiter
+        CQuotingStyle quoting_style
         CIOContext io_context
 
         CCSVWriteOptions()
@@ -1795,6 +1796,11 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef CResult[shared_ptr[CRecordBatchWriter]] MakeCSVWriter(
         shared_ptr[COutputStream], shared_ptr[CSchema],
         CCSVWriteOptions& options)
+
+    cdef enum CQuotingStyle "arrow::csv::QuotingStyle":
+        CQuotingStyle_Needed "arrow::csv::QuotingStyle::Needed"
+        CQuotingStyle_AllValid "arrow::csv::QuotingStyle::AllValid"
+        CQuotingStyle_None "arrow::csv::QuotingStyle::None"
 
 
 cdef extern from "arrow/json/options.h" nogil:
